@@ -1,0 +1,10 @@
+build
+.git
+.github
+scripts
+test
+*.md
+.env
+.env.*
+erl_crash.dump
+docker-compose*.yml
