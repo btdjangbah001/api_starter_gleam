@@ -27,7 +27,7 @@ scripts/rename.sh my_service
 | Email | Queue actor with retries (5 s / 15 s / 45 s), rendering and SMTP off the request path, SMTP (STARTTLS, verified certificates, inline CID images) or console transport |
 | Workers | Supervised periodic actors (rate-limit purge, session pruning) |
 | Errors | One `AppError` ADT mapped exhaustively to status codes; clients always get `{ "error": "<human message>" }` |
-| Ops | Multi-stage Dockerfile (non-root, `/health` health check), dev compose with Postgres + Mailpit + API capped at 1 CPU / 1 GB, CI (format, squirrel check, tests, Docker build) |
+| Ops | Multi-stage Dockerfile (non-root, `/health` health check), dev compose with Postgres + Mailpit + API capped at 1 CPU / 1 GB, CI (format, squirrel check, tests, Docker build and push to Docker Hub) |
 | Testing | `gleeunit` unit tests, `scripts/smoke_check.py` end-to-end, k6 load test, binary-search breaking-point finder |
 
 ## Layout
@@ -138,6 +138,18 @@ Migrations are plain SQL files in `priv/migrations/`, named so they sort in the 
 Each file runs in its own transaction, under a Postgres advisory lock so concurrent instances cannot apply the same migration twice, and is recorded in `schema_migrations`. Files are never edited after they ship: add a new one instead. Statements are split on top-level semicolons (quotes, comments and `$tag$` dollar-quoting are respected), which means statements that refuse to run inside a transaction, such as `create index concurrently`, need to be applied by hand.
 
 Any PostgreSQL 16+ works. In production, use TLS (`?sslmode=require`) and give the app a role that owns its schema.
+
+## Publishing the image
+
+CI (`.github/workflows/test.yml`) builds the image on every run and pushes it to Docker Hub on pushes to `main` and on `v*` tags (pull requests build only). Add these to the GitHub repository settings:
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `DOCKERHUB_USERNAME` | secret | Docker Hub user |
+| `DOCKERHUB_TOKEN` | secret | Docker Hub access token with read/write scope |
+| `DOCKERHUB_IMAGE` | variable, optional | Full image name, e.g. `myorg/api-starter`; defaults to `<DOCKERHUB_USERNAME>/api-starter` |
+
+Tags: `latest` (default branch), `sha-<commit>`, and `1.2.3` / `1.2` for a `v1.2.3` git tag. Point Dokploy at an immutable `sha-` or version tag rather than `latest`.
 
 ## Configuration
 
