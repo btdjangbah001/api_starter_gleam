@@ -261,6 +261,7 @@ pub type ListUsersRow {
     email: String,
     status: String,
     created_at: Timestamp,
+    total: Int,
   )
 }
 
@@ -282,10 +283,26 @@ pub fn list_users(
     use email <- decode.field(3, decode.string)
     use status <- decode.field(4, decode.string)
     use created_at <- decode.field(5, pog.timestamp_decoder())
-    decode.success(ListUsersRow(id:, role:, name:, email:, status:, created_at:))
+    use total <- decode.field(6, decode.int)
+    decode.success(ListUsersRow(
+      id:,
+      role:,
+      name:,
+      email:,
+      status:,
+      created_at:,
+      total:,
+    ))
   }
 
-  "select id, role, name, email, status, created_at at time zone 'utc' as created_at
+  "select
+  id,
+  role,
+  name,
+  email,
+  status,
+  created_at at time zone 'utc' as created_at,
+  count(*) over () as total
 from users
 order by created_at desc
 limit $1 offset $2;

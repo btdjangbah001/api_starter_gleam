@@ -4,26 +4,19 @@ import app/api/web.{type Context}
 import app/services/user_admin_service
 import app/types/app_error.{BadRequest}
 import app/types/user.{type User}
-import gleam/float
-import gleam/json
-import gleam/option
 import gleam/result
 import wisp
 
+const default_page_size = 50
+
+const maximum_page_size = 200
+
 pub fn users(context: Context, http_request: wisp.Request) -> wisp.Response {
-  let query = wisp.get_query(http_request)
-  let number = fn(key, default) {
-    request.query_number(query, key)
-    |> option.map(float.truncate)
-    |> option.unwrap(default)
-  }
   user_admin_service.list_users(
     context.services,
-    number("limit", 50),
-    number("offset", 0),
+    web.page_request(http_request, default_page_size, maximum_page_size),
   )
-  |> result.map(json.array(_, encoders.user))
-  |> web.respond
+  |> web.respond_page(encoders.user)
 }
 
 pub fn update_user(

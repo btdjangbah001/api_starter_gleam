@@ -56,7 +56,7 @@ function request(method, path, body, token, name, ip) {
 
 export function setup() {
   if (MODE === 'probe') return state;
-  const admin = request('POST', '/auth/login', ADMIN, null, 'POST /auth/login', '10.255.0.1').json('token');
+  const admin = request('POST', '/auth/login', ADMIN, null, 'POST /auth/login', '10.255.0.1').json('data.token');
   const members = [];
   for (let start = 0; start < MEMBERS; start += 25) {
     const signups = [];
@@ -69,7 +69,7 @@ export function setup() {
     }
     http.batch(signups);
     http.batch(logins).forEach((response) => {
-      if (response.status === 200) members.push(response.json('token'));
+      if (response.status === 200) members.push(response.json('data.token'));
     });
   }
   console.log(`prepare: ${members.length} members signed in`);
@@ -86,7 +86,7 @@ const ACTIONS = {
     request('PATCH', '/me', { name: `Probe Member ${exec.vu.idInTest}` }, data.members[exec.vu.idInTest % data.members.length], 'PATCH /me');
   },
   listUsers(data) {
-    request('GET', '/admin/users?limit=50', null, data.admin, 'GET /admin/users');
+    request('GET', '/admin/users?pageSize=50', null, data.admin, 'GET /admin/users');
   },
 };
 

@@ -26,7 +26,7 @@ scripts/rename.sh my_service
 | Migrations | Plain `.sql` files in `priv/migrations/`, shipped inside the release and applied in order by `app/migrate` (one transaction per file, advisory-locked, tracked in `schema_migrations`) |
 | Email | Queue actor with retries (5 s / 15 s / 45 s), rendering and SMTP off the request path, SMTP (STARTTLS, verified certificates, inline CID images) or console transport |
 | Workers | Supervised periodic actors (rate-limit purge, session pruning) |
-| Errors | One `AppError` ADT mapped exhaustively to status codes; clients always get `{ "error": "<human message>" }` |
+| Responses | Every response, success or error, uses one envelope (below); one `AppError` ADT maps exhaustively to status codes and messages |
 | Ops | Multi-stage Dockerfile (non-root, `/health` health check), dev compose with Postgres + Mailpit + API capped at 1 CPU / 1 GB, CI (format, squirrel check, tests, Docker build and push to Docker Hub) |
 | Testing | `gleeunit` unit tests, `scripts/smoke_check.py` end-to-end, k6 load test, binary-search breaking-point finder |
 
@@ -45,6 +45,26 @@ scripts/rename.sh my_service
 | `priv/migrations/` | Schema migrations, applied in filename order |
 | `container/` | Release entrypoints copied into the image: `start` (migrates when `MIGRATE_ON_START=true`, then runs), `migrate`, `seed` |
 
+## Response envelope
+
+Every endpoint answers in the same shape, built in `api/web.gleam`; handlers only return their data or an `AppError`.
+
+```json
+{ "status": true, "code": 200, "message": "Success", "data": { "id": "usr_…" }, "errors": null }
+```
+
+Lists that page (`web.respond_page`) add where they are:
+
+```json
+{ "status": true, "code": 200, "message": "Success", "data": [], "metadata": { "pageNumber": 1, "pageSize": 50, "totalCount": 0 }, "errors": null }
+```
+
+Errors keep the status code on the HTTP response and in the body. `message` is safe to show people; `exception` names the kind of error for code to branch on. Server failures never reveal their cause.
+
+```json
+{ "status": false, "code": 409, "message": "An account with this email already exists", "data": null, "errors": [{ "message": "An account with this email already exists", "statusCode": 409, "exception": "Conflict" }] }
+```
+
 ## The example slice
 
 | Endpoint | Access | Notes |
@@ -54,7 +74,7 @@ scripts/rename.sh my_service
 | `POST /api/v1/auth/logout` | member, admin | Revokes the presented token |
 | `GET /api/v1/me` | member, admin | Current user |
 | `PATCH /api/v1/me` | member, admin | `{ name?, email?, currentPassword?, newPassword? }` |
-| `GET /api/v1/admin/users?limit=&offset=` | admin | Newest first, max 200 per page |
+| `GET /api/v1/admin/users?pageNumber=&pageSize=` | admin | Newest first, 50 per page by default, max 200; paged envelope |
 | `PATCH /api/v1/admin/users/:id` | admin | `{ status: "active" \| "suspended" }`; suspending revokes every session |
 | `GET /health` | public | No database access, exempt from admission control |
 

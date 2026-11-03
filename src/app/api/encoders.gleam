@@ -7,10 +7,6 @@ pub fn ok() -> Json {
   json.object([#("ok", json.bool(True))])
 }
 
-pub fn error_body(message: String) -> Json {
-  json.object([#("error", json.string(message))])
-}
-
 pub fn session(token: String, account: User) -> Json {
   json.object([#("token", json.string(token)), #("user", user(account))])
 }

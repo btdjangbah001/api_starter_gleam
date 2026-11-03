@@ -1,6 +1,7 @@
 import app/db/database
 import app/db/users/sql
 import app/types/app_error.{type AppError}
+import app/types/page.{type Page, type PageRequest}
 import app/types/user.{
   type AccountStatus, type Credentials, type Role, type User, Credentials, User,
 }
@@ -155,22 +156,24 @@ pub fn set_status(
 
 pub fn list(
   connection: pog.Connection,
-  limit: Int,
-  offset: Int,
-) -> Result(List(User), AppError) {
+  wanted: PageRequest,
+) -> Result(Page(User), AppError) {
   use found <- result.try(
-    database.rows(sql.list_users(connection, limit, offset)),
+    database.rows(sql.list_users(connection, wanted.size, page.offset(wanted))),
   )
-  list.try_map(found, fn(row) {
-    hydrate(
-      id: row.id,
-      role: row.role,
-      name: row.name,
-      email: row.email,
-      status: row.status,
-      created_at: row.created_at,
-    )
-  })
+  use users <- result.map(
+    list.try_map(found, fn(row) {
+      hydrate(
+        id: row.id,
+        role: row.role,
+        name: row.name,
+        email: row.email,
+        status: row.status,
+        created_at: row.created_at,
+      )
+    }),
+  )
+  page.from_rows(wanted, found, fn(row) { row.total }, users)
 }
 
 pub fn count_admins(connection: pog.Connection) -> Result(Int, AppError) {

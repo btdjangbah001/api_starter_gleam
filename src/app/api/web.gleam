@@ -1,8 +1,8 @@
-import app/api/encoders
 import app/infra/admission
 import app/services/auth_service
 import app/services/context.{type Services}
 import app/types/app_error.{type AppError, Forbidden, Unauthorized}
+import app/types/page.{type Page, type PageRequest}
 import app/types/user.{type Role, type User}
 import gleam/http
 import gleam/http/request
@@ -34,15 +34,77 @@ const max_body_bytes = 65_536
 
 pub const please_log_in = Unauthorized("Please log in again")
 
-pub fn json_ok(body: Json) -> wisp.Response {
-  wisp.json_response(json.to_string(body), 200)
+pub fn json_ok(data: Json) -> wisp.Response {
+  envelope(200, "Success", [#("data", data)], json.null())
 }
 
 pub fn respond(outcome: Result(Json, AppError)) -> wisp.Response {
   case outcome {
-    Ok(body) -> json_ok(body)
+    Ok(data) -> json_ok(data)
     Error(error) -> error_response(error)
   }
+}
+
+pub fn respond_page(
+  outcome: Result(Page(item), AppError),
+  encode: fn(item) -> Json,
+) -> wisp.Response {
+  case outcome {
+    Ok(found) ->
+      envelope(
+        200,
+        "Success",
+        [
+          #("data", json.array(found.items, encode)),
+          #(
+            "metadata",
+            json.object([
+              #("pageNumber", json.int(found.number)),
+              #("pageSize", json.int(found.size)),
+              #("totalCount", json.int(found.total)),
+            ]),
+          ),
+        ],
+        json.null(),
+      )
+    Error(error) -> error_response(error)
+  }
+}
+
+pub fn page_request(
+  http_request: wisp.Request,
+  default_size: Int,
+  max_size: Int,
+) -> PageRequest {
+  let query = wisp.get_query(http_request)
+  let number = fn(key, default) {
+    list.key_find(query, key)
+    |> result.try(fn(text) { int.parse(string.trim(text)) })
+    |> result.unwrap(default)
+  }
+  page.request(
+    number("pageNumber", 1),
+    number("pageSize", default_size),
+    max_size,
+  )
+}
+
+fn envelope(
+  code: Int,
+  message: String,
+  fields: List(#(String, Json)),
+  errors: Json,
+) -> wisp.Response {
+  [
+    #("status", json.bool(code < 400)),
+    #("code", json.int(code)),
+    #("message", json.string(message)),
+    ..fields
+  ]
+  |> list.append([#("errors", errors)])
+  |> json.object
+  |> json.to_string
+  |> wisp.json_response(code)
 }
 
 pub fn error_response(error: AppError) -> wisp.Response {
@@ -53,9 +115,19 @@ pub fn error_response(error: AppError) -> wisp.Response {
       wisp.log_error("Unexpected failure: " <> detail)
     _ -> Nil
   }
-  wisp.json_response(
-    json.to_string(encoders.error_body(app_error.client_message(error))),
-    app_error.status_code(error),
+  let code = app_error.status_code(error)
+  let message = app_error.client_message(error)
+  envelope(
+    code,
+    message,
+    [#("data", json.null())],
+    json.preprocessed_array([
+      json.object([
+        #("message", json.string(message)),
+        #("statusCode", json.int(code)),
+        #("exception", json.string(app_error.kind(error))),
+      ]),
+    ]),
   )
 }
 

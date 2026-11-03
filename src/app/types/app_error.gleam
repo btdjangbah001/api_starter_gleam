@@ -33,6 +33,21 @@ pub fn status_code(error: AppError) -> Int {
   }
 }
 
+pub fn kind(error: AppError) -> String {
+  case error {
+    BadRequest(_) -> "BadRequest"
+    Unauthorized(_) -> "Unauthorized"
+    PaymentDeclined(_) -> "PaymentDeclined"
+    Forbidden(_) -> "Forbidden"
+    NotFound(_) -> "NotFound"
+    Conflict(_) -> "Conflict"
+    Gone(_) -> "Gone"
+    TooManyRequests(_) -> "TooManyRequests"
+    ServiceBusy -> "ServiceBusy"
+    DatabaseFailure(_) | Unexpected(_) -> "ServerError"
+  }
+}
+
 pub fn client_message(error: AppError) -> String {
   case error {
     BadRequest(message)

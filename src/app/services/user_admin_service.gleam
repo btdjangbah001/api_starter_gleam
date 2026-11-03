@@ -3,23 +3,16 @@ import app/db/sessions
 import app/db/users
 import app/services/context.{type Services}
 import app/types/app_error.{type AppError, Conflict, NotFound}
+import app/types/page.{type Page, type PageRequest}
 import app/types/user.{type AccountStatus, type User}
 import gleam/bool
-import gleam/int
 import gleam/result
-
-const maximum_page_size = 200
 
 pub fn list_users(
   services: Services,
-  limit: Int,
-  offset: Int,
-) -> Result(List(User), AppError) {
-  users.list(
-    services.db,
-    int.clamp(limit, min: 1, max: maximum_page_size),
-    int.max(offset, 0),
-  )
+  wanted: PageRequest,
+) -> Result(Page(User), AppError) {
+  users.list(services.db, wanted)
 }
 
 pub fn set_status(

@@ -52,7 +52,7 @@ function think(min, max) {
 function login(email, password, ip) {
   const response = request('POST', '/auth/login', { email, password }, null, 'POST /auth/login', 'auth', ip);
   check(response, { 'login succeeded': (r) => r.status === 200 });
-  return response.status === 200 ? response.json('token') : null;
+  return response.status === 200 ? response.json('data.token') : null;
 }
 
 export function setup() {
@@ -90,7 +90,7 @@ export function memberSession() {
 
 export function adminConsole(data) {
   for (let round = 0; round < 6; round++) {
-    request('GET', '/admin/users?limit=50', null, data.admin, 'GET /admin/users', 'poll');
+    request('GET', '/admin/users?pageSize=50', null, data.admin, 'GET /admin/users', 'poll');
     sleep(10);
   }
 }
